@@ -39,7 +39,15 @@ extractVersion() {
   awk '
         $1 == "ENV" && /_VERSION/ {
         match($2, /"(.*)"/)
-        print substr($2, RSTART + 1, RLENGTH - 2)
+        versionStr = substr($2, RSTART + 1, RLENGTH - 2)
+        versionStrLength = split(versionStr, versionStrArray, ".")
+        if(versionStrLength > 3) {
+            print versionStr
+        } else if(versionStrLength > 2){
+            print versionStr ".0"
+        } else {
+            print versionStr ".0.0"
+        }
         exit
       }'
 
