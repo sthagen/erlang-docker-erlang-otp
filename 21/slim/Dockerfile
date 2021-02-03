@@ -1,6 +1,6 @@
 FROM debian:stretch
 
-ENV OTP_VERSION="21.3.8.18"
+ENV OTP_VERSION="21.3.8.20"
 
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.version=$OTP_VERSION
 # sure our final image contains only what we've just built:
 RUN set -xe \
 	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/OTP-${OTP_VERSION}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="3481a47503e1ac0c0296970b460d1936ee0432600f685a216608e04b2f608367" \
+	&& OTP_DOWNLOAD_SHA256="7ed3b3c149add9f847144d507ffc411d63a212523539789e9d73d19edcf5aa16" \
 	&& fetchDeps=' \
 		curl \
 		ca-certificates' \
