@@ -1,33 +1,38 @@
-FROM alpine:3.9
+FROM alpine:3.13
 
-ENV OTP_VERSION="23.0-rc0@f633fe9"
+ENV OTP_VERSION="24.0-rc1" \
+    REBAR3_VERSION="3.14.4"
+
+LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
-	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/${OTP_VERSION#*@}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="30333c806db7805fc2ff2b1f23b905859095d793be769180f8c3f68d20b99b3b" \
+	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/OTP-${OTP_VERSION}.tar.gz" \
+	&& OTP_DOWNLOAD_SHA256="884cfc4113ffbee40992cd30620de749a636ae635b96177238e058b23d54fdf1" \
+	&& REBAR3_DOWNLOAD_SHA256="8d78ed53209682899d777ee9443b26b39c9bf96c8b081fe94b3dd6693077cb9a" \
 	&& apk add --no-cache --virtual .fetch-deps \
 		curl \
 		ca-certificates \
 	&& curl -fSL -o otp-src.tar.gz "$OTP_DOWNLOAD_URL" \
 	&& echo "$OTP_DOWNLOAD_SHA256  otp-src.tar.gz" | sha256sum -c - \
 	&& apk add --no-cache --virtual .build-deps \
-		build-base \
 		dpkg-dev dpkg \
+		gcc \
+		g++ \
+		libc-dev \
 		linux-headers \
+		make \
 		autoconf \
 		ncurses-dev \
 		openssl-dev \
 		unixodbc-dev \
 		lksctp-tools-dev \
 		tar \
-	&& export ERL_TOP="/usr/src/otp_src_${OTP_VERSION%@*}" \
+	&& export ERL_TOP="/usr/src/otp_src_${OTP_VERSION%%@*}" \
 	&& mkdir -vp $ERL_TOP \
 	&& tar -xzf otp-src.tar.gz -C $ERL_TOP --strip-components=1 \
 	&& rm otp-src.tar.gz \
 	&& ( cd $ERL_TOP \
 	  && ./otp_build autoconf \
-	  && sed -i -e '/utils\/gen_git_version/c\\\
-	@echo GIT_VSN=-DERLANG_GIT_VERSION="\\"\\\\\\""'${OTP_VERSION#*@}'\\\\"\\"\\"" > $@' ./erts/emulator/Makefile.in \
 	  && gnuArch="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)" \
 	  && ./configure --build="$gnuArch" \
 	  && make -j$(getconf _NPROCESSORS_ONLN) \
@@ -44,13 +49,20 @@ RUN set -xe \
 			| sort -u \
 			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
 	)" \
-	&& apk add --virtual .erlang-rundeps $runDeps lksctp-tools \
+	&& REBAR3_DOWNLOAD_URL="https://github.com/erlang/rebar3/archive/${REBAR3_VERSION}.tar.gz" \
+	&& curl -fSL -o rebar3-src.tar.gz "$REBAR3_DOWNLOAD_URL" \
+	&& echo "${REBAR3_DOWNLOAD_SHA256}  rebar3-src.tar.gz" | sha256sum -c - \
+	&& mkdir -p /usr/src/rebar3-src \
+	&& tar -xzf rebar3-src.tar.gz -C /usr/src/rebar3-src --strip-components=1 \
+	&& rm rebar3-src.tar.gz \
+	&& cd /usr/src/rebar3-src \
+	&& HOME=$PWD ./bootstrap \
+	&& install -v ./rebar3 /usr/local/bin/ \
+	&& rm -rf /usr/src/rebar3-src \
+	&& apk add --virtual .erlang-rundeps \
+		$runDeps \
+		lksctp-tools \
+		ca-certificates \
 	&& apk del .fetch-deps .build-deps
 
 CMD ["erl"]
-
-ENV REBAR3_VERSION="3.14.4"
-
-RUN set -xe \
-	&& wget -O /usr/local/bin/rebar3 https://github.com/erlang/rebar3/releases/download/${REBAR3_VERSION}/rebar3 \
-	&& chmod -v a+x /usr/local/bin/rebar3

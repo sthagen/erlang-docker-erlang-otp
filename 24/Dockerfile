@@ -1,15 +1,17 @@
-FROM buildpack-deps:stretch
+FROM buildpack-deps:buster
 
-ENV OTP_VERSION="19.3.6.13"
+ENV OTP_VERSION="24.0-rc1" \
+    REBAR3_VERSION="3.14.4"
+
+LABEL org.opencontainers.image.version=$OTP_VERSION
 
 # We'll install the build dependencies for erlang-odbc along with the erlang
 # build process:
 RUN set -xe \
 	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/archive/OTP-${OTP_VERSION}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="11a914176a33068226644f4e999ecc6e965ab1c60a324d90020f164641631fae" \
+	&& OTP_DOWNLOAD_SHA256="884cfc4113ffbee40992cd30620de749a636ae635b96177238e058b23d54fdf1" \
 	&& runtimeDeps='libodbc1 \
 			libsctp1 \
-			libssl1.0-dev \
 			libwxgtk3.0' \
 	&& buildDeps='unixodbc-dev \
 			libsctp-dev \
@@ -18,20 +20,21 @@ RUN set -xe \
 	&& apt-get install -y --no-install-recommends $runtimeDeps \
 	&& apt-get install -y --no-install-recommends $buildDeps \
 	&& curl -fSL -o otp-src.tar.gz "$OTP_DOWNLOAD_URL" \
-	&& echo "$OTP_DOWNLOAD_SHA256 otp-src.tar.gz" | sha256sum -c - \
-	&& mkdir -p /usr/src/otp-src \
-	&& tar -xzf otp-src.tar.gz -C /usr/src/otp-src --strip-components=1 \
+	&& echo "$OTP_DOWNLOAD_SHA256  otp-src.tar.gz" | sha256sum -c - \
+	&& export ERL_TOP="/usr/src/otp_src_${OTP_VERSION%%@*}" \
+	&& mkdir -vp $ERL_TOP \
+	&& tar -xzf otp-src.tar.gz -C $ERL_TOP --strip-components=1 \
 	&& rm otp-src.tar.gz \
-	&& cd /usr/src/otp-src \
-	&& ./otp_build autoconf \
-	&& gnuArch="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)" \
-	&& ./configure --build="$gnuArch" \
-		--enable-dirty-schedulers \
-	&& make -j$(nproc) \
-	&& make install \
+	&& ( cd $ERL_TOP \
+	  && ./otp_build autoconf \
+	  && gnuArch="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)" \
+	  && ./configure --build="$gnuArch" \
+	  && make -j$(nproc) \
+	  && make -j$(nproc) docs DOC_TARGETS=chunks \
+	  && make install install-docs DOC_TARGETS=chunks ) \
 	&& find /usr/local -name examples | xargs rm -rf \
 	&& apt-get purge -y --auto-remove $buildDeps \
-	&& rm -rf /usr/src/otp-src /var/lib/apt/lists/*
+	&& rm -rf $ERL_TOP /var/lib/apt/lists/*
 
 CMD ["erl"]
 
@@ -51,8 +54,6 @@ RUN set -xe \
 	&& ./bootstrap \
 	&& install -v ./rebar /usr/local/bin/ \
 	&& rm -rf /usr/src/rebar-src
-
-ENV REBAR3_VERSION="3.14.4"
 
 RUN set -xe \
 	&& REBAR3_DOWNLOAD_URL="https://github.com/erlang/rebar3/archive/${REBAR3_VERSION}.tar.gz" \
