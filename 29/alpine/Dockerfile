@@ -1,13 +1,13 @@
-FROM alpine:3.23
+FROM alpine:3.24
 
-ENV OTP_VERSION="29.0.2" \
+ENV OTP_VERSION="29.0.3" \
     REBAR3_VERSION="3.27.0"
 
 LABEL org.opencontainers.image.version=$OTP_VERSION
 
 RUN set -xe \
 	&& OTP_DOWNLOAD_URL="https://github.com/erlang/otp/releases/download/OTP-${OTP_VERSION}/otp_src_${OTP_VERSION}.tar.gz" \
-	&& OTP_DOWNLOAD_SHA256="b9a7714fdd282c4a7113651b1e2728a58799e60ffe20e545f5cc94c621527b15" \
+	&& OTP_DOWNLOAD_SHA256="f920c660b16794bcb7270d1cbf680f7747c719650bcd6ac449508a32c2a8972a" \
 	&& REBAR3_DOWNLOAD_SHA256="985cae6e957334cfa549190b9f5efb9185c184a18fc181c87b8dde096ba79f38" \
 	&& apk add --no-cache --virtual .fetch-deps \
 		curl \
@@ -39,8 +39,8 @@ RUN set -xe \
 	  && make install ) \
 	&& rm -rf $ERL_TOP \
 	&& find /usr/local -regex '/usr/local/lib/erlang/\(lib/\|erts-\).*/\(man\|doc\|obj\|c_src\|emacs\|info\|examples\)' | xargs rm -rf \
-	&& find /usr/local -name src | xargs -r find | grep -v '\.hrl$' | xargs rm -v || true \
-	&& find /usr/local -name src | xargs -r find | xargs rmdir -vp || true \
+	&& { find /usr/local -name src | xargs -r find | grep -v '\.hrl$' | xargs rm -v || true; } \
+	&& { find /usr/local -name src | xargs -r find | xargs rmdir -vp || true; } \
 	&& scanelf --nobanner -E ET_EXEC -BF '%F' --recursive /usr/local | xargs -r strip --strip-all \
 	&& scanelf --nobanner -E ET_DYN -BF '%F' --recursive /usr/local | xargs -r strip --strip-unneeded \
 	&& runDeps="$( \
